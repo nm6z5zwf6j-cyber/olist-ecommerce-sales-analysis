@@ -1,0 +1,8 @@
+metric,value,definition
+total_revenue_brl,13181027.13,Sum of item prices for delivered orders; freight excluded
+orders,96211.0,Distinct delivered orders
+items,109880.0,Order-item rows
+average_order_value_brl,137.0,Total merchandise revenue divided by distinct orders
+unique_customers,93104.0,Distinct customer_unique_id values
+repeat_customers,2789.0,Customers with more than one delivered order
+repeat_customer_rate_pct,3.0,Repeat customers divided by unique customers

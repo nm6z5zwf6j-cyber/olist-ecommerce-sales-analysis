@@ -1,0 +1,10 @@
+{
+  "analysis_start": "2017-01-01",
+  "analysis_end_inclusive": "2018-08-31",
+  "currency": "BRL",
+  "revenue_definition": "Sum of item price; freight excluded",
+  "grain": "One row per order item",
+  "data_source": "Brazilian E-Commerce Public Dataset by Olist",
+  "data_source_url": "https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce",
+  "data_license": "CC BY-NC-SA 4.0"
+}

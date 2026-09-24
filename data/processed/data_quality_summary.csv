@@ -1,0 +1,8 @@
+check,row_count,treatment
+Exact duplicate source rows,0,Removed before joins
+Negative price or freight rows,0,Excluded as logically invalid
+Orders not marked delivered,2963,Excluded from realized sales
+Delivered orders outside 2017-01 to 2018-08,267,Excluded to keep complete comparable months
+Item rows without translated product category,1557,Retained and labeled unknown
+Item rows without mapped macro-region,0,Retained and labeled Unknown
+Item prices above IQR threshold (BRL 275.57),8130,Flagged and retained; high prices can be valid sales
