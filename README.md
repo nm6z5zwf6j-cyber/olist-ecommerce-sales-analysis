@@ -1,8 +1,12 @@
 # Olist E-Commerce Sales Analysis
 
+[![Tests](https://github.com/nm6z5zwf6j-cyber/olist-ecommerce-sales-analysis/actions/workflows/tests.yml/badge.svg)](https://github.com/nm6z5zwf6j-cyber/olist-ecommerce-sales-analysis/actions/workflows/tests.yml)
+
 Учебный аналитический проект по продажам бразильского маркетплейса Olist. Проект показывает полный цикл работы Junior Data Analyst: загрузку и проверку данных, объединение таблиц, расчёт метрик в Python и SQL, визуализацию, интерпретацию результатов и воспроизводимую структуру репозитория.
 
-**Краткое описание для GitHub:** End-to-end analysis of 96K delivered Olist orders using Python, pandas, SQL and reproducible visualizations.
+**Стек:** Python, pandas, NumPy, SQLite, Matplotlib, Seaborn, Jupyter.
+
+Для быстрого знакомства: [результаты](#основные-результаты), [методология и определения метрик](docs/methodology.md), [SQL](sql/analysis.sql), [ноутбук](notebooks/analysis.ipynb).
 
 ## Цель и вопросы анализа
 
@@ -100,7 +104,26 @@
 
 Команды выполняются из корня репозитория.
 
+### Быстрая проверка без загрузки данных
+
+После клонирования репозитория установите только зависимости расчётов и запустите тесты:
+
+```shell
+python -m pip install -r requirements-core.txt
+python -m unittest discover -s tests -v
+```
+
+Тесты используют небольшие синтетические таблицы. Они проверяют очистку, границы периода, повторные покупки, защиту от размножения строк при объединениях и согласованность Python с восемью SQL-запросами. Исходные CSV, Kaggle, Jupyter и построение графиков для тестов не нужны. Установка зависимостей требует доступа к PyPI; сами тесты выполняются без сети.
+
+При пустой выборке количество заказов и выручка равны нулю; средний чек и доля повторных покупателей не определены (`None` в Python, `NULL` в SQL). Это отличается от непустой выборки с нулевой выручкой. Подробности — в [методологии](docs/methodology.md).
+
+GitHub Actions запускает эти проверки на Linux и Windows с Python 3.11 и 3.12 при отправке изменений и создании pull request. Статус последнего запуска доступен по значку в начале README. Эти проверки не заменяют повторный анализ полного набора и выполнение ноутбука.
+
+### Полный анализ в Windows PowerShell
+
 ```powershell
+git clone https://github.com/nm6z5zwf6j-cyber/olist-ecommerce-sales-analysis.git
+cd olist-ecommerce-sales-analysis
 python -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
@@ -114,14 +137,18 @@ jupyter notebook notebooks/analysis.ipynb
 
 Если исходные данные уже загружены, скрипт загрузки не скачивает их повторно. Для принудительного обновления используется `python scripts/download_data.py --force`.
 
+В Linux и macOS среда активируется командой `source .venv/bin/activate`; остальные команды Python совпадают.
+
 ## Структура репозитория
 
 ```text
 .
+├── .github/workflows/tests.yml # автоматические проверки
 ├── data/
 │   ├── raw/                 # инструкция; исходные CSV исключены из Git
 │   └── processed/           # метрики, агрегаты и пример очищенных строк
 ├── images/                  # графики для README
+├── docs/methodology.md       # определения, правила и ограничения метрик
 ├── notebooks/
 │   └── analysis.ipynb       # выполненный анализ с выводами
 ├── scripts/
@@ -134,35 +161,16 @@ jupyter notebook notebooks/analysis.ipynb
 ├── src/
 │   └── analysis.py          # очистка, расчёты и визуализация
 ├── tests/
-│   └── test_analysis.py
+│   ├── fixtures.py          # синтетические исходные таблицы
+│   ├── test_analysis.py
+│   ├── test_prepare_sales.py
+│   └── test_sql.py
 ├── .gitignore
 ├── LICENSE
 ├── README.md
+├── requirements-core.txt    # зависимости расчётов и тестов
 └── requirements.txt
 ```
-
-## Предлагаемая история коммитов
-
-1. `chore: initialize analytics project structure`
-2. `feat: add reproducible Olist data download`
-3. `feat: build sales cleaning and metrics pipeline`
-4. `feat: add SQLite schema loader and business queries`
-5. `feat: add executed notebook and visualizations`
-6. `docs: document findings, limitations and setup`
-
-## Публикация на GitHub
-
-После создания пустого публичного репозитория `olist-ecommerce-sales-analysis`:
-
-```powershell
-git branch -M main
-git add .
-git commit -m "feat: publish Olist e-commerce sales analysis"
-git remote add origin https://github.com/USERNAME/olist-ecommerce-sales-analysis.git
-git push -u origin main
-```
-
-Перед командой `git commit` следует настроить имя и адрес автора Git, если они ещё не заданы. `USERNAME` нужно заменить на имя пользователя GitHub.
 
 ## Ограничения
 

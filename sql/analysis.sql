@@ -23,7 +23,7 @@ order_values AS (
     GROUP BY order_id
 )
 SELECT
-    ROUND(SUM(order_revenue), 2) AS total_revenue_brl,
+    ROUND(COALESCE(SUM(order_revenue), 0), 2) AS total_revenue_brl,
     COUNT(*) AS orders,
     ROUND(AVG(order_revenue), 2) AS average_order_value_brl
 FROM order_values;
@@ -140,7 +140,7 @@ WITH customer_orders AS (
 )
 SELECT
     COUNT(*) AS unique_customers,
-    SUM(CASE WHEN order_count > 1 THEN 1 ELSE 0 END) AS repeat_customers,
+    COALESCE(SUM(CASE WHEN order_count > 1 THEN 1 ELSE 0 END), 0) AS repeat_customers,
     ROUND(
         100.0 * SUM(CASE WHEN order_count > 1 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0),
         2

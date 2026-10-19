@@ -1,5 +1,4 @@
-pandas>=2.2,<4.0
-numpy>=1.26,<3.0
+-r requirements-core.txt
 matplotlib>=3.8,<4.0
 seaborn>=0.13,<1.0
 jupyter>=1.0,<2.0

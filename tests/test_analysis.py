@@ -6,6 +6,32 @@ from src.analysis import calculate_metrics
 
 
 class CalculateMetricsTests(unittest.TestCase):
+    def test_empty_input_has_zero_counts_and_undefined_rates(self):
+        sales = pd.DataFrame(
+            columns=["order_id", "order_item_id", "customer_unique_id", "item_revenue"]
+        )
+        self.assertEqual(
+            calculate_metrics(sales),
+            {
+                "orders": 0,
+                "items": 0,
+                "total_revenue_brl": 0.0,
+                "average_order_value_brl": None,
+                "unique_customers": 0,
+                "repeat_customers": 0,
+                "repeat_customer_rate_pct": None,
+            },
+        )
+
+    def test_zero_revenue_is_a_valid_observation(self):
+        sales = pd.DataFrame(
+            {"order_id": ["o1"], "customer_unique_id": ["c1"], "item_revenue": [0.0]}
+        )
+        metrics = calculate_metrics(sales)
+        self.assertEqual(metrics["orders"], 1)
+        self.assertEqual(metrics["average_order_value_brl"], 0.0)
+        self.assertEqual(metrics["repeat_customer_rate_pct"], 0.0)
+
     def test_multi_item_order_is_counted_once(self):
         sales = pd.DataFrame(
             {

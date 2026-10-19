@@ -181,8 +181,8 @@ def prepare_sales(
     return sales.reset_index(drop=True), stats
 
 
-def calculate_metrics(sales: pd.DataFrame) -> dict[str, int | float]:
-    """Calculate headline metrics without double-counting multi-item orders."""
+def calculate_metrics(sales: pd.DataFrame) -> dict[str, int | float | None]:
+    """Calculate order-level metrics; undefined rates are None for empty data."""
     order_values = sales.groupby("order_id", as_index=False).agg(
         order_revenue=("item_revenue", "sum"),
         customer_unique_id=("customer_unique_id", "first"),
@@ -198,10 +198,15 @@ def calculate_metrics(sales: pd.DataFrame) -> dict[str, int | float]:
         "total_revenue_brl": round(total_revenue, 2),
         "orders": total_orders,
         "items": int(len(sales)),
-        "average_order_value_brl": round(total_revenue / total_orders, 2),
+        "average_order_value_brl": (
+            round(total_revenue / total_orders, 2) if total_orders else None
+        ),
         "unique_customers": unique_customers,
         "repeat_customers": repeat_customers,
-        "repeat_customer_rate_pct": round(100 * repeat_customers / unique_customers, 2),
+        "repeat_customer_rate_pct": (
+            round(100 * repeat_customers / unique_customers, 2)
+            if unique_customers else None
+        ),
     }
 
 
