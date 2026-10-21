@@ -2,6 +2,7 @@
 -- SQL dialect: SQLite
 -- Analysis period: 2017-01-01 through 2018-08-31
 -- Revenue definition: item price for delivered orders; freight excluded.
+-- Every query requires a matching customer row, as the Python sales table does.
 
 -- QUERY 1: Headline revenue, order count, and average order value
 WITH delivered_sales AS (
@@ -12,6 +13,9 @@ WITH delivered_sales AS (
     FROM orders AS o
     JOIN order_items AS oi ON oi.order_id = o.order_id
     WHERE o.order_status = 'delivered'
+      AND EXISTS (
+          SELECT 1 FROM customers AS c WHERE c.customer_id = o.customer_id
+      )
       AND DATE(o.order_purchase_timestamp) >= '2017-01-01'
       AND DATE(o.order_purchase_timestamp) < '2018-09-01'
       AND oi.price >= 0
@@ -37,6 +41,9 @@ WITH order_values AS (
     FROM orders AS o
     JOIN order_items AS oi ON oi.order_id = o.order_id
     WHERE o.order_status = 'delivered'
+      AND EXISTS (
+          SELECT 1 FROM customers AS c WHERE c.customer_id = o.customer_id
+      )
       AND DATE(o.order_purchase_timestamp) >= '2017-01-01'
       AND DATE(o.order_purchase_timestamp) < '2018-09-01'
       AND oi.price >= 0
@@ -64,6 +71,9 @@ LEFT JOIN products AS p ON p.product_id = oi.product_id
 LEFT JOIN category_translation AS t
     ON t.product_category_name = p.product_category_name
 WHERE o.order_status = 'delivered'
+  AND EXISTS (
+      SELECT 1 FROM customers AS c WHERE c.customer_id = o.customer_id
+  )
   AND DATE(o.order_purchase_timestamp) >= '2017-01-01'
   AND DATE(o.order_purchase_timestamp) < '2018-09-01'
   AND oi.price >= 0
@@ -115,6 +125,9 @@ LEFT JOIN products AS p ON p.product_id = oi.product_id
 LEFT JOIN category_translation AS t
     ON t.product_category_name = p.product_category_name
 WHERE o.order_status = 'delivered'
+  AND EXISTS (
+      SELECT 1 FROM customers AS c WHERE c.customer_id = o.customer_id
+  )
   AND DATE(o.order_purchase_timestamp) >= '2017-01-01'
   AND DATE(o.order_purchase_timestamp) < '2018-09-01'
   AND oi.price >= 0
@@ -155,6 +168,9 @@ WITH monthly_sales AS (
     FROM orders AS o
     JOIN order_items AS oi ON oi.order_id = o.order_id
     WHERE o.order_status = 'delivered'
+      AND EXISTS (
+          SELECT 1 FROM customers AS c WHERE c.customer_id = o.customer_id
+      )
       AND DATE(o.order_purchase_timestamp) >= '2017-01-01'
       AND DATE(o.order_purchase_timestamp) < '2018-09-01'
       AND oi.price >= 0

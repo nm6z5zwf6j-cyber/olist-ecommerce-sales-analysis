@@ -86,6 +86,47 @@ class LoadDatabaseTests(unittest.TestCase):
             sales, _ = prepare_sales(raw)
             self.assertEqual(headline["total_revenue_brl"], calculate_metrics(sales)["total_revenue_brl"])
 
+    def assert_queries_match_reference(self, raw, reference):
+        self.load_csv_tables(raw)
+        sales, _ = prepare_sales(raw)
+        metrics = calculate_metrics(sales)
+        with (
+            contextlib.closing(sqlite3.connect(self.database_path)) as actual_db,
+            contextlib.closing(sqlite3.connect(":memory:")) as expected_db,
+        ):
+            for name, frame in reference.items():
+                frame.to_sql(name, expected_db, index=False)
+            for number, query in enumerate(self.queries, start=1):
+                with self.subTest(query=number):
+                    pd.testing.assert_frame_equal(
+                        pd.read_sql_query(query, actual_db),
+                        pd.read_sql_query(query, expected_db),
+                    )
+            for number in (1, 6):
+                result = pd.read_sql_query(self.queries[number - 1], actual_db).iloc[0]
+                for name, value in result.items():
+                    with self.subTest(query=number, metric=name):
+                        self.assertEqual(value, metrics[name])
+
+    def test_missing_customer_row_excludes_its_order_from_every_query(self):
+        raw = make_raw_data()
+        raw["customers"] = raw["customers"][raw["customers"]["customer_id"].ne("c1")]
+        reference = {name: frame.copy() for name, frame in raw.items()}
+        reference["orders"] = reference["orders"][reference["orders"]["order_id"].ne("o1")]
+        reference["order_items"] = reference["order_items"][reference["order_items"]["order_id"].ne("o1")]
+        sales, _ = prepare_sales(raw)
+        self.assertEqual(calculate_metrics(sales)["total_revenue_brl"], 120.0)
+        self.assertEqual(calculate_metrics(sales)["orders"], 3)
+        self.assert_queries_match_reference(raw, reference)
+
+    def test_no_customer_rows_produces_empty_selection_in_every_query(self):
+        raw = make_raw_data()
+        raw["customers"] = raw["customers"].iloc[:0]
+        reference = {name: frame.copy() for name, frame in raw.items()}
+        reference["orders"] = reference["orders"].iloc[:0]
+        reference["order_items"] = reference["order_items"].iloc[:0]
+        self.assert_queries_match_reference(raw, reference)
+
 
 if __name__ == "__main__":
     unittest.main()
