@@ -18,20 +18,44 @@ TABLES = {
     "category_translation": "product_category_name_translation.csv",
 }
 
+SOURCE_KEYS = {
+    "customers": ["customer_id"],
+    "orders": ["order_id"],
+    "order_items": ["order_id", "order_item_id"],
+    "payments": ["order_id", "payment_sequential"],
+    "products": ["product_id"],
+    "category_translation": ["product_category_name"],
+}
+
 
 def load_database(raw_dir: Path, database_path: Path) -> None:
-    """Rebuild SQLite tables, removing exact source duplicates as Python does."""
+    """Validate source keys before replacing any existing SQLite tables."""
     missing = [filename for filename in TABLES.values() if not (raw_dir / filename).exists()]
     if missing:
         raise FileNotFoundError("Missing CSV files. Run scripts/download_data.py first.")
 
+    # Check every source first: a late key conflict must leave the old DB intact.
+    cleaned_tables = {}
+    removed_counts = {}
+    for table_name, filename in TABLES.items():
+        frame = pd.read_csv(raw_dir / filename)
+        cleaned = frame.drop_duplicates()
+        conflicting = cleaned.duplicated(SOURCE_KEYS[table_name], keep=False)
+        if conflicting.any():
+            keys = ", ".join(SOURCE_KEYS[table_name])
+            raise ValueError(
+                f"{table_name}: conflicting key ({keys}) in "
+                f"{int(conflicting.sum())} rows after removing exact duplicates. "
+                "Resolve conflicting records before loading SQLite."
+            )
+        cleaned_tables[table_name] = cleaned
+        removed_counts[table_name] = len(frame) - len(cleaned)
+
     database_path.parent.mkdir(parents=True, exist_ok=True)
     with closing(sqlite3.connect(database_path)) as connection, connection:
-        for table_name, filename in TABLES.items():
-            frame = pd.read_csv(raw_dir / filename)
-            cleaned = frame.drop_duplicates()
+        for table_name, cleaned in cleaned_tables.items():
             cleaned.to_sql(table_name, connection, if_exists="replace", index=False)
-            removed = len(frame) - len(cleaned)
+            removed = removed_counts[table_name]
             print(
                 f"Loaded {table_name}: {len(cleaned):,} rows "
                 f"({removed:,} exact duplicate rows removed)"

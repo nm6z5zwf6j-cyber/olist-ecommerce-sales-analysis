@@ -127,6 +127,44 @@ class LoadDatabaseTests(unittest.TestCase):
         reference["order_items"] = reference["order_items"].iloc[:0]
         self.assert_queries_match_reference(raw, reference)
 
+    def test_conflicting_keys_are_rejected_before_creating_any_database(self):
+        changed_fields = {
+            "customers": ("customer_state", "RJ"),
+            "orders": ("order_status", "canceled"),
+            "order_items": ("price", 999.0),
+            "payments": ("payment_value", 999.0),
+            "products": ("product_category_name", "other"),
+            "category_translation": ("product_category_name_english", "other"),
+        }
+        for name, (column, value) in changed_fields.items():
+            with self.subTest(table=name):
+                raw = make_raw_data()
+                extra = raw[name].iloc[:1].copy()
+                extra[column] = value
+                raw[name] = pd.concat([raw[name], extra], ignore_index=True)
+                self.database_path = self.raw_dir.parent / f"{name}.db"
+                with self.assertRaisesRegex(ValueError, f"{name}: conflicting key"):
+                    self.load_csv_tables(raw)
+                self.assertFalse(self.database_path.exists())
+
+    def test_late_key_conflict_preserves_existing_database(self):
+        self.load_csv_tables(make_raw_data())
+        before = self.database_path.read_bytes()
+        changed = make_raw_data()
+        changed["orders"]["order_status"] = "canceled"
+        extra = changed["category_translation"].iloc[:1].copy()
+        extra["product_category_name_english"] = "other"
+        changed["category_translation"] = pd.concat(
+            [changed["category_translation"], extra], ignore_index=True,
+        )
+        with self.assertRaisesRegex(ValueError, "category_translation: conflicting key"):
+            self.load_csv_tables(changed)
+        self.assertEqual(self.database_path.read_bytes(), before)
+        with contextlib.closing(sqlite3.connect(self.database_path)) as connection:
+            headline = pd.read_sql_query(self.queries[0], connection).iloc[0]
+            self.assertEqual(headline["total_revenue_brl"], 145.0)
+            self.assertEqual(headline["orders"], 4)
+
 
 if __name__ == "__main__":
     unittest.main()
