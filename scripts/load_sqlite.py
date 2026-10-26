@@ -40,9 +40,19 @@ def load_database(raw_dir: Path, database_path: Path) -> None:
     for table_name, filename in TABLES.items():
         frame = pd.read_csv(raw_dir / filename)
         cleaned = frame.drop_duplicates()
-        conflicting = cleaned.duplicated(SOURCE_KEYS[table_name], keep=False)
+        key_columns = SOURCE_KEYS[table_name]
+        keys = ", ".join(key_columns)
+        missing_key = cleaned[key_columns].isna().any(axis=1)
+        for column in key_columns:
+            missing_key |= cleaned[column].astype("string").str.strip().eq("").fillna(False)
+        if missing_key.any():
+            raise ValueError(
+                f"{table_name}: missing or blank key ({keys}) in "
+                f"{int(missing_key.sum())} rows after removing exact duplicates. "
+                "Fill source keys before loading SQLite."
+            )
+        conflicting = cleaned.duplicated(key_columns, keep=False)
         if conflicting.any():
-            keys = ", ".join(SOURCE_KEYS[table_name])
             raise ValueError(
                 f"{table_name}: conflicting key ({keys}) in "
                 f"{int(conflicting.sum())} rows after removing exact duplicates. "

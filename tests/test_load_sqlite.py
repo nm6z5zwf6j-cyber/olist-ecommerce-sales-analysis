@@ -165,6 +165,41 @@ class LoadDatabaseTests(unittest.TestCase):
             self.assertEqual(headline["total_revenue_brl"], 145.0)
             self.assertEqual(headline["orders"], 4)
 
+    def test_missing_and_blank_key_parts_are_rejected_before_database_creation(self):
+        key_columns = {
+            "customers": ["customer_id"],
+            "orders": ["order_id"],
+            "order_items": ["order_id", "order_item_id"],
+            "payments": ["order_id", "payment_sequential"],
+            "products": ["product_id"],
+            "category_translation": ["product_category_name"],
+        }
+        for name, columns in key_columns.items():
+            for column in columns:
+                for number, value in enumerate((None, "", " \t ")):
+                    with self.subTest(table=name, column=column, value=value):
+                        raw = make_raw_data()
+                        raw[name][column] = raw[name][column].astype(object)
+                        raw[name].loc[0, column] = value
+                        self.database_path = self.raw_dir.parent / f"{name}_{column}_{number}.db"
+                        with self.assertRaisesRegex(ValueError, f"{name}: missing or blank key"):
+                            self.load_csv_tables(raw)
+                        self.assertFalse(self.database_path.exists())
+
+    def test_late_blank_key_preserves_existing_database(self):
+        self.load_csv_tables(make_raw_data())
+        before = self.database_path.read_bytes()
+        changed = make_raw_data()
+        changed["orders"]["order_status"] = "canceled"
+        changed["category_translation"].loc[0, "product_category_name"] = " \t "
+        with self.assertRaisesRegex(ValueError, "category_translation: missing or blank key"):
+            self.load_csv_tables(changed)
+        self.assertEqual(self.database_path.read_bytes(), before)
+        with contextlib.closing(sqlite3.connect(self.database_path)) as connection:
+            headline = pd.read_sql_query(self.queries[0], connection).iloc[0]
+            self.assertEqual(headline["total_revenue_brl"], 145.0)
+            self.assertEqual(headline["orders"], 4)
+
 
 if __name__ == "__main__":
     unittest.main()
