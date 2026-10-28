@@ -240,3 +240,54 @@ FROM ranked_categories
 WHERE revenue_rank = 1
 ORDER BY revenue_brl DESC;
 
+-- QUERY 9: Six-month repeat-purchase retention for fully observed cohorts
+WITH RECURSIVE
+eligible_orders AS (
+    SELECT DISTINCT
+        o.order_id,
+        c.customer_unique_id,
+        STRFTIME('%Y-%m', o.order_purchase_timestamp) AS purchase_month
+    FROM orders AS o
+    JOIN customers AS c ON c.customer_id = o.customer_id
+    JOIN order_items AS oi ON oi.order_id = o.order_id
+    WHERE o.order_status = 'delivered'
+      AND DATE(o.order_purchase_timestamp) >= '2017-01-01'
+      AND DATE(o.order_purchase_timestamp) < '2018-09-01'
+      AND oi.price >= 0
+      AND oi.freight_value >= 0
+),
+customer_months AS (
+    SELECT DISTINCT customer_unique_id, purchase_month FROM eligible_orders
+),
+first_months AS (
+    SELECT customer_unique_id, MIN(purchase_month) AS cohort_month
+    FROM customer_months
+    GROUP BY customer_unique_id
+),
+cohort_sizes AS (
+    SELECT cohort_month, COUNT(*) AS cohort_size
+    FROM first_months
+    WHERE cohort_month <= '2018-03'
+    GROUP BY cohort_month
+),
+month_offsets(months_since_first_order) AS (
+    SELECT 0 UNION ALL SELECT months_since_first_order + 1
+    FROM month_offsets WHERE months_since_first_order < 5
+),
+cohort_activity AS (
+    SELECT f.cohort_month, m.months_since_first_order,
+           COUNT(DISTINCT a.customer_unique_id) AS customers
+    FROM cohort_sizes AS s
+    JOIN first_months AS f ON f.cohort_month = s.cohort_month
+    CROSS JOIN month_offsets AS m
+    LEFT JOIN customer_months AS a
+      ON a.customer_unique_id = f.customer_unique_id
+     AND a.purchase_month = STRFTIME('%Y-%m', DATE(f.cohort_month || '-01',
+                                                  '+' || m.months_since_first_order || ' months'))
+    GROUP BY f.cohort_month, m.months_since_first_order
+)
+SELECT a.cohort_month, a.months_since_first_order, a.customers, s.cohort_size,
+       ROUND(100.0 * a.customers / s.cohort_size, 2) AS retention_pct
+FROM cohort_activity AS a
+JOIN cohort_sizes AS s ON s.cohort_month = a.cohort_month
+ORDER BY a.cohort_month, a.months_since_first_order;
