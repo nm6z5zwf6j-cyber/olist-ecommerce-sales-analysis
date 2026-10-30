@@ -2,7 +2,7 @@ import unittest
 
 import pandas as pd
 
-from src.analysis import build_summary_tables, calculate_metrics, prepare_sales
+from src.analysis import ANALYSIS_KEYS, build_summary_tables, calculate_metrics, prepare_sales
 from tests.fixtures import make_raw_data
 
 
@@ -71,6 +71,20 @@ class PrepareSalesTests(unittest.TestCase):
         sales, stats = prepare_sales(self.raw)
         self.assertEqual(stats["raw_exact_duplicates"], 6)
         self.assertEqual(calculate_metrics(sales)["total_revenue_brl"], 145.0)
+
+    def test_direct_analysis_rejects_missing_and_blank_source_keys(self):
+        invalid_values = (None, "", " \t ")
+        for table_name, key_columns in ANALYSIS_KEYS.items():
+            for column in key_columns:
+                for invalid_value in invalid_values:
+                    with self.subTest(table=table_name, column=column, value=repr(invalid_value)):
+                        raw = make_raw_data()
+                        raw[table_name][column] = raw[table_name][column].astype(object)
+                        raw[table_name].loc[0, column] = invalid_value
+                        with self.assertRaisesRegex(
+                            ValueError, rf"{table_name}: missing or blank key .*{column}"
+                        ):
+                            prepare_sales(raw)
 
     def test_conflicting_customer_key_fails_before_revenue_inflation(self):
         extra = self.raw["customers"].iloc[:1].copy()
