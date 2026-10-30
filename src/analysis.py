@@ -22,6 +22,15 @@ REQUIRED_FILES = {
     "payments": "olist_order_payments_dataset.csv",
 }
 
+ANALYSIS_KEYS = {
+    "customers": ("customer_id", "customer_unique_id"),
+    "orders": ("order_id",),
+    "order_items": ("order_id", "order_item_id"),
+    "products": ("product_id",),
+    "category_translation": ("product_category_name",),
+    "payments": ("order_id", "payment_sequential"),
+}
+
 STATE_TO_REGION = {
     "AC": "North",
     "AP": "North",
@@ -68,6 +77,22 @@ def load_raw_data(raw_dir: Path) -> dict[str, pd.DataFrame]:
     }
 
 
+def _validate_analysis_keys(tables: Mapping[str, pd.DataFrame]) -> None:
+    """Reject missing or blank source-key values before analysis joins."""
+    for table_name, key_columns in ANALYSIS_KEYS.items():
+        frame = tables[table_name]
+        missing_key = frame[list(key_columns)].isna().any(axis=1)
+        for column in key_columns:
+            missing_key |= frame[column].astype("string").str.strip().eq("").fillna(False)
+        if missing_key.any():
+            keys = ", ".join(key_columns)
+            raise ValueError(
+                f"{table_name}: missing or blank key ({keys}) in "
+                f"{int(missing_key.sum())} rows after removing exact duplicates. "
+                "Fill source keys before analysis."
+            )
+
+
 def prepare_sales(
     raw: Mapping[str, pd.DataFrame],
     start: pd.Timestamp = ANALYSIS_START,
@@ -75,6 +100,7 @@ def prepare_sales(
 ) -> tuple[pd.DataFrame, dict[str, int | float]]:
     """Clean and join the source tables at order-item grain."""
     tables = {name: frame.drop_duplicates().copy() for name, frame in raw.items()}
+    _validate_analysis_keys(tables)
 
     orders = tables["orders"]
     orders["order_purchase_timestamp"] = pd.to_datetime(
