@@ -383,7 +383,7 @@ def save_cohort_figure(cohort_retention: pd.DataFrame, image_path: Path) -> None
         cmap="Blues",
         vmin=0,
         vmax=100,
-        cbar_kws={"label": "Customers with a delivered order (%)"},
+        cbar_kws={"label": "Customers with an order later delivered (%)"},
         ax=ax,
     )
     ax.set_title(
@@ -391,8 +391,8 @@ def save_cohort_figure(cohort_retention: pd.DataFrame, image_path: Path) -> None
         loc="left",
         weight="bold",
     )
-    ax.set_xlabel("Months since first delivered order")
-    ax.set_ylabel("First-order month")
+    ax.set_xlabel("Months since first order purchase")
+    ax.set_ylabel("First order purchase month")
     fig.tight_layout()
     fig.savefig(image_path, dpi=180, bbox_inches="tight")
     plt.close(fig)
