@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pandas as pd
 
-from src.analysis import build_summary_tables, calculate_metrics, prepare_sales
+from src.analysis import build_cohort_retention, build_summary_tables, calculate_metrics, prepare_sales
 from tests.fixtures import make_raw_data
 
 
@@ -36,9 +36,9 @@ class SqlParityTests(unittest.TestCase):
             rtol=0,
         )
 
-    def test_all_eight_queries_execute(self):
-        self.assertEqual(len(self.queries), 8)
-        for number in range(1, 9):
+    def test_all_nine_queries_execute(self):
+        self.assertEqual(len(self.queries), 9)
+        for number in range(1, 10):
             with self.subTest(query=number):
                 self.assertFalse(self.query(number).empty)
 
@@ -93,6 +93,15 @@ class SqlParityTests(unittest.TestCase):
         )
         self.assert_rows_equal(
             self.query(8), expected, list(expected.columns), ["customer_region", "product_category"],
+        )
+
+    def test_six_month_cohort_retention_matches_python(self):
+        expected = build_cohort_retention(self.sales)
+        actual = self.query(9)
+        self.assert_rows_equal(
+            actual, expected,
+            ["cohort_month", "months_since_first_order", "customers", "cohort_size", "retention_pct"],
+            ["cohort_month", "months_since_first_order"],
         )
 
     def test_empty_selection_matches_python_null_semantics(self):

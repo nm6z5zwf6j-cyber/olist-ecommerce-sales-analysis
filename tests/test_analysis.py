@@ -2,7 +2,8 @@ import unittest
 
 import pandas as pd
 
-from src.analysis import calculate_metrics
+from src.analysis import build_cohort_retention, calculate_metrics, prepare_sales
+from tests.fixtures import make_raw_data
 
 
 class CalculateMetricsTests(unittest.TestCase):
@@ -51,6 +52,24 @@ class CalculateMetricsTests(unittest.TestCase):
         self.assertEqual(metrics["unique_customers"], 2)
         self.assertEqual(metrics["repeat_customers"], 1)
         self.assertEqual(metrics["repeat_customer_rate_pct"], 50.0)
+
+
+class CohortRetentionTests(unittest.TestCase):
+    def test_only_complete_six_month_cohorts_are_reported(self):
+        sales, _ = prepare_sales(make_raw_data())
+        cohorts = build_cohort_retention(sales)
+        self.assertEqual(cohorts["cohort_month"].unique().tolist(), ["2017-01", "2017-02"])
+        self.assertEqual(len(cohorts), 12)
+        january = cohorts[cohorts["cohort_month"].eq("2017-01")]
+        self.assertEqual(january["cohort_size"].unique().tolist(), [1])
+        self.assertEqual(january["retention_pct"].tolist(), [100.0, 100.0, 0.0, 0.0, 0.0, 0.0])
+        february = cohorts[cohorts["cohort_month"].eq("2017-02")]
+        self.assertEqual(february["cohort_size"].unique().tolist(), [2])
+        self.assertEqual(february["retention_pct"].tolist(), [100.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+    def test_empty_sales_returns_a_well_shaped_table(self):
+        columns = ["cohort_month", "months_since_first_order", "customers", "cohort_size", "retention_pct"]
+        self.assertEqual(list(build_cohort_retention(pd.DataFrame()).columns), columns)
 
 
 if __name__ == "__main__":
