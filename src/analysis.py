@@ -31,6 +31,15 @@ ANALYSIS_KEYS = {
     "payments": ("order_id", "payment_sequential"),
 }
 
+UNIQUE_SOURCE_KEYS = {
+    "customers": ("customer_id",),
+    "orders": ("order_id",),
+    "order_items": ("order_id", "order_item_id"),
+    "products": ("product_id",),
+    "category_translation": ("product_category_name",),
+    "payments": ("order_id", "payment_sequential"),
+}
+
 STATE_TO_REGION = {
     "AC": "North",
     "AP": "North",
@@ -78,7 +87,7 @@ def load_raw_data(raw_dir: Path) -> dict[str, pd.DataFrame]:
 
 
 def _validate_analysis_keys(tables: Mapping[str, pd.DataFrame]) -> None:
-    """Reject missing or blank source-key values before analysis joins."""
+    """Reject blank and conflicting source keys before analysis joins."""
     for table_name, key_columns in ANALYSIS_KEYS.items():
         frame = tables[table_name]
         missing_key = frame[list(key_columns)].isna().any(axis=1)
@@ -90,6 +99,14 @@ def _validate_analysis_keys(tables: Mapping[str, pd.DataFrame]) -> None:
                 f"{table_name}: missing or blank key ({keys}) in "
                 f"{int(missing_key.sum())} rows after removing exact duplicates. "
                 "Fill source keys before analysis."
+            )
+        unique_key = list(UNIQUE_SOURCE_KEYS[table_name])
+        conflicting = frame.duplicated(unique_key, keep=False)
+        if conflicting.any():
+            raise ValueError(
+                f"{table_name}: conflicting key ({', '.join(unique_key)}) in "
+                f"{int(conflicting.sum())} rows after removing exact duplicates. "
+                "Resolve conflicting records before analysis."
             )
 
 
