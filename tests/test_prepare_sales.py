@@ -2,7 +2,7 @@ import unittest
 
 import pandas as pd
 
-from src.analysis import build_summary_tables, calculate_metrics, prepare_sales
+from src.analysis import ANALYSIS_KEYS, build_summary_tables, calculate_metrics, prepare_sales
 from tests.fixtures import make_raw_data
 
 
@@ -72,19 +72,51 @@ class PrepareSalesTests(unittest.TestCase):
         self.assertEqual(stats["raw_exact_duplicates"], 6)
         self.assertEqual(calculate_metrics(sales)["total_revenue_brl"], 145.0)
 
+    def test_direct_analysis_rejects_missing_and_blank_source_keys(self):
+        invalid_values = (None, "", " \t ")
+        for table_name, key_columns in ANALYSIS_KEYS.items():
+            for column in key_columns:
+                for invalid_value in invalid_values:
+                    with self.subTest(table=table_name, column=column, value=repr(invalid_value)):
+                        raw = make_raw_data()
+                        raw[table_name][column] = raw[table_name][column].astype(object)
+                        raw[table_name].loc[0, column] = invalid_value
+                        with self.assertRaisesRegex(
+                            ValueError, rf"{table_name}: missing or blank key .*{column}"
+                        ):
+                            prepare_sales(raw)
+
     def test_conflicting_customer_key_fails_before_revenue_inflation(self):
         extra = self.raw["customers"].iloc[:1].copy()
         extra["customer_state"] = "RJ"
         self.raw["customers"] = pd.concat([self.raw["customers"], extra], ignore_index=True)
-        with self.assertRaises(pd.errors.MergeError):
+        with self.assertRaisesRegex(ValueError, "customers: conflicting key"):
             prepare_sales(self.raw)
 
     def test_conflicting_item_key_fails_before_revenue_inflation(self):
         extra = self.raw["order_items"].iloc[:1].copy()
         extra["price"] = 999.0
         self.raw["order_items"] = pd.concat([self.raw["order_items"], extra], ignore_index=True)
-        with self.assertRaisesRegex(ValueError, "duplicate order-item keys"):
+        with self.assertRaisesRegex(ValueError, "order_items: conflicting key"):
             prepare_sales(self.raw)
+
+    def test_conflicting_source_keys_are_rejected_before_analysis(self):
+        changes = {
+            "customers": ("customer_state", "RJ"),
+            "orders": ("order_status", "canceled"),
+            "order_items": ("price", 999.0),
+            "products": ("product_category_name", "other"),
+            "category_translation": ("product_category_name_english", "other"),
+            "payments": ("payment_value", 999.0),
+        }
+        for table, (column, value) in changes.items():
+            with self.subTest(table=table):
+                raw = make_raw_data()
+                extra = raw[table].iloc[:1].copy()
+                extra[column] = value
+                raw[table] = pd.concat([raw[table], extra], ignore_index=True)
+                with self.assertRaisesRegex(ValueError, rf"{table}: conflicting key"):
+                    prepare_sales(raw)
 
     def test_no_eligible_orders_produces_empty_sales_and_defined_counts(self):
         self.raw["orders"]["order_status"] = "canceled"
